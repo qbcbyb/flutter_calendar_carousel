@@ -12,7 +12,6 @@ import 'package:intl/intl.dart' show DateFormat;
 typedef MarkedDateIconBuilder<T> = Widget Function(T event);
 
 class CalendarCarousel<T> extends StatefulWidget {
-
   final double viewportFraction;
   final TextStyle prevDaysTextStyle;
   final TextStyle daysTextStyle;
@@ -109,7 +108,7 @@ class CalendarCarousel<T> extends StatefulWidget {
     this.markedDateMoreShowTotal,
     this.markedDateMoreCustomDecoration,
     this.markedDateMoreCustomTextStyle,
-    this.markedDateWidget,
+    @deprecated this.markedDateWidget,
     this.headerMargin = const EdgeInsets.symmetric(vertical: 16.0),
     this.childAspectRatio = 1.0,
     this.weekDayMargin = const EdgeInsets.only(bottom: 4.0),
@@ -134,6 +133,24 @@ class CalendarCarousel<T> extends StatefulWidget {
   _CalendarState<T> createState() => _CalendarState<T>();
 }
 
+DateTime _firstDayOfWeek(DateTime day) {
+  day = new DateTime(day.year, day.month, day.day);
+
+  /// Weekday is on a 1-7 scale Monday - Sunday,
+  /// This Calendar works from Sunday - Monday
+  var decreaseNum = day.weekday % 7;
+  return day.subtract(new Duration(days: decreaseNum));
+}
+
+DateTime _lastDayOfWeek(DateTime day) {
+  day = new DateTime(day.year, day.month, day.day);
+
+  /// Weekday is on a 1-7 scale Monday - Sunday,
+  /// This Calendar's Week starts on Sunday
+  var increaseNum = day.weekday % 7;
+  return day.add(new Duration(days: 7 - increaseNum));
+}
+
 enum WeekdayFormat {
   weekdays,
   standalone,
@@ -143,11 +160,13 @@ enum WeekdayFormat {
   standaloneNarrow,
 }
 
+const millisecondsOneDay = 1000 * 60 * 60 * 24;
+
 class _CalendarState<T> extends State<CalendarCarousel<T>> {
   PageController _controller;
   List<DateTime> _dates = List(3);
   List<List<DateTime>> _weeks = List(3);
-  DateTime _selectedDate = DateTime.now();
+  DateTime _selectedDate;
   int _startWeekday = 0;
   int _endWeekday = 0;
   DateFormat _localeDate;
@@ -175,8 +194,11 @@ class _CalendarState<T> extends State<CalendarCarousel<T>> {
 
     _localeDate = DateFormat.yMMM(widget.locale);
     firstDayOfWeek = (_localeDate.dateSymbols.FIRSTDAYOFWEEK + 1) % 7;
-    if (widget.selectedDateTime != null)
+    if (widget.selectedDateTime != null) {
       _selectedDate = widget.selectedDateTime;
+    } else {
+      _selectedDate = DateTime.now();
+    }
     _setDate();
   }
 
@@ -199,8 +221,11 @@ class _CalendarState<T> extends State<CalendarCarousel<T>> {
                 style: widget.headerTextStyle,
               ));
     if (_isReloadSelectedDate) {
-      if (widget.selectedDateTime != null)
+      if (widget.selectedDateTime != null) {
         _selectedDate = widget.selectedDateTime;
+      } else {
+        _selectedDate = DateTime.now();
+      }
       _setDatesAndWeeks();
     } else {
       _isReloadSelectedDate = true;
@@ -631,7 +656,9 @@ class _CalendarState<T> extends State<CalendarCarousel<T>> {
                                 ),
                               ),
                             ),
-                            _renderMarked(now),
+                            widget.markedDatesMap != null
+                                ? _renderMarkedMapContainer(now)
+                                : _renderMarked(now),
                           ],
                         ),
                       ),
@@ -647,8 +674,8 @@ class _CalendarState<T> extends State<CalendarCarousel<T>> {
   List<DateTime> _getDaysInWeek([DateTime selectedDate]) {
     if (selectedDate == null) selectedDate = new DateTime.now();
 
-    var firstDayOfCurrentWeek = Utils.firstDayOfWeek(selectedDate);
-    var lastDayOfCurrentWeek = Utils.lastDayOfWeek(selectedDate);
+    var firstDayOfCurrentWeek = _firstDayOfWeek(selectedDate);
+    var lastDayOfCurrentWeek = _lastDayOfWeek(selectedDate);
 
     return Utils.daysInRange(firstDayOfCurrentWeek, lastDayOfCurrentWeek)
         .toList();
@@ -965,14 +992,11 @@ class _CalendarState<T> extends State<CalendarCarousel<T>> {
             );
           }
         } else {
-
-
           //max 5 dots
-          if(event_index < 5) {
+          if (event_index < 5) {
             if (widget.markedDateIconBuilder != null) {
               tmp.add(widget.markedDateIconBuilder(event));
-            }
-            else {
+            } else {
               if (widget.markedDateWidget != null) {
                 tmp.add(widget.markedDateWidget);
               } else {
@@ -980,13 +1004,9 @@ class _CalendarState<T> extends State<CalendarCarousel<T>> {
               }
             }
           }
-
-
-
         }
 
         event_index++;
-
       });
       return tmp;
     }
